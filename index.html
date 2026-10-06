@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChronoFlow - Custom Interval Timer</title>
+  <meta name="robots" content="noindex, nofollow">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <!-- React & React DOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel compiler to transpile JSX in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Simple inline SVG icon renderer to support Lucide icon tags
+    const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+      const icons = {
+        Activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>,
+        Zap: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>,
+        Settings: <path d="M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>,
+        FolderOpen: <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z M2 10h20"/>,
+        Sun: <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42M12 17a5 5 0 100-10 5 5 0 000 10z"/>,
+        Moon: <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>,
+        Flame: <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/>,
+        Play: <path d="M5 3l14 9-14 9V3z"/>,
+        Pause: <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>,
+        SkipForward: <path d="M5 4l10 8-10 8V4zM19 5v14"/>,
+        SkipBack: <path d="M19 20L9 12l10-8v16zM5 19V5"/>,
+        RotateCcw: <path d="M1 4v6h6M3.51 15a9 9 0 102.13-9.36L1 10"/>,
+        Bell: <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>,
+        Volume2: <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>,
+        VolumeX: <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>,
+        Sparkles: <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"/>,
+        Plus: <path d="M12 5v14M5 12h14"/>,
+        ChevronUp: <path d="M18 15l-6-6-6 6"/>,
+        ChevronDown: <path d="M6 9l6 6 6-6"/>,
+        Copy: <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2 M15 2H9a1 1 0 00-1 1v2a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1z"/>,
+        Trash2: <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>,
+        Save: <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z M17 21v-8H7v8 M7 3v5h8"/>
+      };
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+          {icons[name] || null}
+        </svg>
+      );
+    };
+
+    const Activity = (p) => <Icon name="Activity" {...p} />;
+    const Zap = (p) => <Icon name="Zap" {...p} />;
+    const Settings = (p) => <Icon name="Settings" {...p} />;
+    const FolderOpen = (p) => <Icon name="FolderOpen" {...p} />;
+    const Sun = (p) => <Icon name="Sun" {...p} />;
+    const Moon = (p) => <Icon name="Moon" {...p} />;
+    const Flame = (p) => <Icon name="Flame" {...p} />;
+    const Play = (p) => <Icon name="Play" {...p} />;
+    const Pause = (p) => <Icon name="Pause" {...p} />;
+    const SkipForward = (p) => <Icon name="SkipForward" {...p} />;
+    const SkipBack = (p) => <Icon name="SkipBack" {...p} />;
+    const RotateCcw = (p) => <Icon name="RotateCcw" {...p} />;
+    const Bell = (p) => <Icon name="Bell" {...p} />;
+    const Volume2 = (p) => <Icon name="Volume2" {...p} />;
+    const VolumeX = (p) => <Icon name="VolumeX" {...p} />;
+    const Sparkles = (p) => <Icon name="Sparkles" {...p} />;
+    const Plus = (p) => <Icon name="Plus" {...p} />;
+    const ChevronUp = (p) => <Icon name="ChevronUp" {...p} />;
+    const ChevronDown = (p) => <Icon name="ChevronDown" {...p} />;
+    const Copy = (p) => <Icon name="Copy" {...p} />;
+    const Trash2 = (p) => <Icon name="Trash2" {...p} />;
+    const Save = (p) => <Icon name="Save" {...p} />;
+
+    const DEFAULT_PRESETS = [
+      {
+        id: 'sit-stand-pomodoro',
+        name: 'Pomodoro + Sit/Stand',
+        description: '25m Sit Work, 5m Stand Work, 5m Break',
+        cycles: 4,
+        steps: [
+          { id: '1', name: 'Sitting Work', minutes: 25, seconds: 0, color: '#3B82F6', sound: 'chime' },
+          { id: '2', name: 'Standing Work', minutes: 5, seconds: 0, color: '#10B981', sound: 'bell' },
+          { id: '3', name: 'Rest Break', minutes: 5, seconds: 0, color: '#F59E0B', sound: 'chime' },
+        ]
+      },
+      {
+        id: 'ergo-sit-stand',
+        name: 'Ergonomic 20-8-2 Rule',
+        description: '20m Sitting, 8m Standing, 2m Stretch/Move',
+        cycles: 6,
+        steps: [
+          { id: '1', name: 'Sitting Work', minutes: 20, seconds: 0, color: '#6366F1', sound: 'chime' },
+          { id: '2', name: 'Standing Work', minutes: 8, seconds: 0, color: '#10B981', sound: 'chime' },
+          { id: '3', name: 'Stretch & Move', minutes: 2, seconds: 0, color: '#EC4899', sound: 'bell' },
+        ]
+      },
+      {
+        id: 'classic-50-10',
+        name: 'Classic 50/10 Focus',
+        description: '50m Deep Focus Work, 10m Recharge Break',
+        cycles: 4,
+        steps: [
+          { id: '1', name: 'Deep Focus Work', minutes: 50, seconds: 0, color: '#8B5CF6', sound: 'bell' },
+          { id: '2', name: 'Recharge Break', minutes: 10, seconds: 0, color: '#14B8A6', sound: 'chime' },
+        ]
+      }
+    ];
+
+    const PRESET_COLORS = [
+      { name: 'Blue', hex: '#3B82F6' },
+      { name: 'Emerald', hex: '#10B981' },
+      { name: 'Amber', hex: '#F59E0B' },
+      { name: 'Purple', hex: '#8B5CF6' },
+      { name: 'Pink', hex: '#EC4899' },
+      { name: 'Indigo', hex: '#6366F1' },
+      { name: 'Teal', hex: '#14B8A6' },
+      { name: 'Red', hex: '#EF4444' },
+    ];
+
+    const playAudioTone = (type = 'chime') => {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        if (type === 'silent') return;
+        const now = ctx.currentTime;
+
+        if (type === 'beep') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.3);
+        } else if (type === 'chime') {
+          const notes = [523.25, 659.25, 783.99];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+            gain.gain.setValueAtTime(0, now + idx * 0.12);
+            gain.gain.linearRampToValueAtTime(0.25, now + idx * 0.12 + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.8);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now + idx * 0.12);
+            osc.stop(now + idx * 0.12 + 0.85);
+          });
+        } else if (type === 'bell') {
+          const freqs = [440, 880, 1320, 1760];
+          freqs.forEach((f, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(f, now);
+            const volume = 0.3 / (i + 1);
+            gain.gain.setValueAtTime(volume, now);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 1.8);
+          });
+        }
+      } catch (err) {
+        console.error("Audio error:", err);
+      }
+    };
+
+    function App() {
+      const [darkMode, setDarkMode] = useState(() => {
+        const saved = localStorage.getItem('interval_app_theme');
+        return saved ? JSON.parse(saved) : true;
+      });
+
+      const [presets, setPresets] = useState(() => {
+        const saved = localStorage.getItem('interval_app_presets');
+        return saved ? JSON.parse(saved) : DEFAULT_PRESETS;
+      });
+
+      const [sessionName, setSessionName] = useState('My Custom Routine');
+      const [steps, setSteps] = useState(DEFAULT_PRESETS[0].steps);
+      const [targetCycles, setTargetCycles] = useState(4);
+      
+      const [isRunning, setIsRunning] = useState(false);
+      const [currentStepIndex, setCurrentStepIndex] = useState(0);
+      const [currentCycle, setCurrentCycle] = useState(1);
+      const [timeLeft, setTimeLeft] = useState(() => (DEFAULT_PRESETS[0].steps[0]?.minutes * 60 + DEFAULT_PRESETS[0].steps[0]?.seconds) || 60);
+      const [flashEffect, setFlashEffect] = useState(false);
+      const [soundEnabled, setSoundEnabled] = useState(true);
+      const [flashEnabled, setFlashEnabled] = useState(true);
+
+      const [activeTab, setActiveTab] = useState('timer');
+      const [editingPresetName, setEditingPresetName] = useState('');
+
+      const timerRef = useRef(null);
+
+      useEffect(() => {
+        localStorage.setItem('interval_app_theme', JSON.stringify(darkMode));
+        if (darkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }, [darkMode]);
+
+      useEffect(() => {
+        localStorage.setItem('interval_app_presets', JSON.stringify(presets));
+      }, [presets]);
+
+      const getStepDurationSeconds = (step) => {
+        if (!step) return 0;
+        return (parseInt(step.minutes) || 0) * 60 + (parseInt(step.seconds) || 0);
+      };
+
+      const calculateTotalSessionSeconds = () => {
+        const cycleTime = steps.reduce((acc, step) => acc + getStepDurationSeconds(step), 0);
+        return targetCycles > 0 ? cycleTime * targetCycles : cycleTime;
+      };
+
+      const calculateElapsedSeconds = () => {
+        const cycleTime = steps.reduce((acc, step) => acc + getStepDurationSeconds(step), 0);
+        const completedCyclesTime = (currentCycle - 1) * cycleTime;
+        const previousStepsTime = steps.slice(0, currentStepIndex).reduce((acc, step) => acc + getStepDurationSeconds(step), 0);
+        const currentStepTotal = getStepDurationSeconds(steps[currentStepIndex]);
+        const currentStepElapsed = Math.max(0, currentStepTotal - timeLeft);
+        return completedCyclesTime + previousStepsTime + currentStepElapsed;
+      };
+
+      const handleStepCompletion = () => {
+        const currentStep = steps[currentStepIndex];
+        if (soundEnabled) playAudioTone(currentStep.sound || 'chime');
+        if (flashEnabled) {
+          setFlashEffect(true);
+          setTimeout(() => setFlashEffect(false), 800);
+        }
+
+        if (currentStepIndex < steps.length - 1) {
+          const nextIdx = currentStepIndex + 1;
+          setCurrentStepIndex(nextIdx);
+          setTimeLeft(getStepDurationSeconds(steps[nextIdx]));
+        } else {
+          if (targetCycles === 0 || currentCycle < targetCycles) {
+            setCurrentCycle(prev => prev + 1);
+            setCurrentStepIndex(0);
+            setTimeLeft(getStepDurationSeconds(steps[0]));
+          } else {
+            setIsRunning(false);
+            if (soundEnabled) playAudioTone('bell');
+          }
+        }
+      };
+
+      useEffect(() => {
+        if (isRunning) {
+          timerRef.current = setInterval(() => {
+            setTimeLeft((prevTime) => {
+              if (prevTime <= 1) {
+                handleStepCompletion();
+                return 0;
+              }
+              return prevTime - 1;
+            });
+          }, 1000);
+        } else {
+          clearInterval(timerRef.current);
+        }
+        return () => clearInterval(timerRef.current);
+      }, [isRunning, currentStepIndex, currentCycle, steps, targetCycles, soundEnabled, flashEnabled]);
+
+      const syncTimerToCurrentStep = (index = currentStepIndex) => {
+        if (steps[index]) setTimeLeft(getStepDurationSeconds(steps[index]));
+      };
+
+      const handleTogglePlay = () => setIsRunning(!isRunning);
+
+      const handleResetAll = () => {
+        setIsRunning(false);
+        setCurrentStepIndex(0);
+        setCurrentCycle(1);
+        if (steps.length > 0) setTimeLeft(getStepDurationSeconds(steps[0]));
+      };
+
+      const handleSkipNext = () => {
+        if (currentStepIndex < steps.length - 1) {
+          setCurrentStepIndex(prev => prev + 1);
+          setTimeLeft(getStepDurationSeconds(steps[currentStepIndex + 1]));
+        } else if (targetCycles === 0 || currentCycle < targetCycles) {
+          setCurrentCycle(prev => prev + 1);
+          setCurrentStepIndex(0);
+          setTimeLeft(getStepDurationSeconds(steps[0]));
+        }
+      };
+
+      const handleSkipPrev = () => {
+        if (currentStepIndex > 0) {
+          setCurrentStepIndex(prev => prev - 1);
+          setTimeLeft(getStepDurationSeconds(steps[currentStepIndex - 1]));
+        } else if (currentCycle > 1) {
+          setCurrentCycle(prev => prev - 1);
+          setCurrentStepIndex(steps.length - 1);
+          setTimeLeft(getStepDurationSeconds(steps[steps.length - 1]));
+        }
+      };
+
+      const handleAddStep = () => {
+        const newStep = {
+          id: Date.now().toString(),
+          name: 'Work Block',
+          minutes: 15,
+          seconds: 0,
+          color: PRESET_COLORS[steps.length % PRESET_COLORS.length].hex,
+          sound: 'chime'
+        };
+        const updated = [...steps, newStep];
+        setSteps(updated);
+        if (steps.length === 0) setTimeLeft(getStepDurationSeconds(newStep));
+      };
+
+      const handleUpdateStep = (id, key, value) => {
+        const updated = steps.map(s => s.id === id ? { ...s, [key]: value } : s);
+        setSteps(updated);
+        const activeIdx = steps.findIndex(s => s.id === id);
+        if (activeIdx === currentStepIndex && !isRunning) {
+          const updatedStep = updated[activeIdx];
+          if (key === 'minutes' || key === 'seconds') {
+            setTimeLeft(getStepDurationSeconds(updatedStep));
+          }
+        }
+      };
+
+      const handleDeleteStep = (id) => {
+        if (steps.length <= 1) {
+          alert("At least one step is required in the interval sequence.");
+          return;
+        }
+        const updated = steps.filter(s => s.id !== id);
+        setSteps(updated);
+        if (currentStepIndex >= updated.length) {
+          setCurrentStepIndex(0);
+          setTimeLeft(getStepDurationSeconds(updated[0]));
+        }
+      };
+
+      const handleDuplicateStep = (index) => {
+        const stepToCopy = steps[index];
+        const newStep = {
+          ...stepToCopy,
+          id: Date.now().toString(),
+          name: `${stepToCopy.name} (Copy)`
+        };
+        const updated = [...steps];
+        updated.splice(index + 1, 0, newStep);
+        setSteps(updated);
+      };
+
+      const handleMoveStep = (index, direction) => {
+        if ((direction === -1 && index === 0) || (direction === 1 && index === steps.length - 1)) return;
+        const updated = [...steps];
+        const targetIdx = index + direction;
+        const temp = updated[index];
+        updated[index] = updated[targetIdx];
+        updated[targetIdx] = temp;
+        setSteps(updated);
+      };
+
+      const handleLoadPreset = (preset) => {
+        setIsRunning(false);
+        setSessionName(preset.name);
+        setSteps(preset.steps);
+        setTargetCycles(preset.cycles);
+        setCurrentStepIndex(0);
+        setCurrentCycle(1);
+        if (preset.steps.length > 0) {
+          setTimeLeft(getStepDurationSeconds(preset.steps[0]));
+        }
+        setActiveTab('timer');
+      };
+
+      const handleSaveAsNewPreset = () => {
+        if (!editingPresetName.trim()) return;
+        const newPreset = {
+          id: Date.now().toString(),
+          name: editingPresetName.trim(),
+          description: `${steps.length} intervals sequence`,
+          cycles: targetCycles,
+          steps: [...steps]
+        };
+        setPresets([...presets, newPreset]);
+        setEditingPresetName('');
+        alert(`Saved preset "${newPreset.name}" successfully!`);
+      };
+
+      const handleDeletePreset = (id) => {
+        setPresets(presets.filter(p => p.id !== id));
+      };
+
+      const formatTime = (totalSecs) => {
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      };
+
+      const currentStep = steps[currentStepIndex] || { name: 'Done', color: '#6B7280', minutes: 0, seconds: 0 };
+      const currentStepTotalSecs = getStepDurationSeconds(currentStep);
+      const currentStepProgressPercent = currentStepTotalSecs > 0 
+        ? Math.min(100, Math.max(0, ((currentStepTotalSecs - timeLeft) / currentStepTotalSecs) * 100))
+        : 0;
+
+      const totalSessionSecs = calculateTotalSessionSeconds();
+      const elapsedSessionSecs = calculateElapsedSeconds();
+      const overallProgressPercent = totalSessionSecs > 0
+        ? Math.min(100, Math.max(0, (elapsedSessionSecs / totalSessionSecs) * 100))
+        : 0;
+
+      return (
+        <div className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${
+          darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800'
+        } ${flashEffect ? 'bg-indigo-600/30' : ''}`}>
+          
+          <header className={`px-4 lg:px-8 py-4 border-b flex items-center justify-between backdrop-blur-md sticky top-0 z-30 ${
+            darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                <Activity className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg lg:text-xl tracking-tight bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
+                  ChronoFlow
+                </h1>
+                <p className="text-xs text-slate-400 font-medium">Custom Interval & Sit/Stand Timer</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <nav className={`flex p-1 rounded-xl border ${
+                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
+              }`}>
+                <button
+                  onClick={() => setActiveTab('timer')}
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                    activeTab === 'timer' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>Timer</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('editor')}
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                    activeTab === 'editor' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Configure</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('presets')}
+                  className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                    activeTab === 'presets' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  <span>Presets</span>
+                </button>
+              </nav>
+
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2.5 rounded-xl border transition-all ${
+                  darkMode ? 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 lg:p-8">
+            {activeTab === 'timer' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div className="lg:col-span-7 flex flex-col items-center">
+                  <div className="w-full text-center mb-4">
+                    <span className="text-xs uppercase tracking-widest text-indigo-500 font-bold">Current Routine</span>
+                    <h2 className="text-xl md:text-2xl font-bold tracking-tight">{sessionName}</h2>
+                  </div>
+
+                  <div className="relative w-72 h-72 sm:w-80 sm:h-80 md:w-96 md:h-96 my-2 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="44" className={`${darkMode ? 'stroke-slate-800' : 'stroke-slate-200'}`} strokeWidth="6" fill="transparent" />
+                      <circle
+                        cx="50" cy="50" r="44"
+                        stroke={currentStep.color || '#3B82F6'}
+                        strokeWidth="6"
+                        strokeDasharray={276.46}
+                        strokeDashoffset={276.46 - (276.46 * currentStepProgressPercent) / 100}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        className="transition-all duration-1000 ease-linear"
+                      />
+                    </svg>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                      <div className="px-3.5 py-1 rounded-full text-xs font-bold text-white shadow-sm mb-2 flex items-center gap-1.5" style={{ backgroundColor: currentStep.color || '#3B82F6' }}>
+                        <Flame className="w-3.5 h-3.5" />
+                        <span>{currentStep.name}</span>
+                      </div>
+
+                      <div className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight font-mono my-1">
+                        {formatTime(timeLeft)}
+                      </div>
+
+                      <div className="text-xs sm:text-sm text-slate-400 font-medium flex items-center gap-2 mt-1">
+                        <span>Block {currentStepIndex + 1} of {steps.length}</span>
+                        <span>•</span>
+                        <span>Cycle {currentCycle} {targetCycles > 0 ? `/ ${targetCycles}` : '(∞)'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 sm:gap-4 my-6">
+                    <button onClick={handleSkipPrev} className={`p-3.5 rounded-2xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700'}`}>
+                      <SkipBack className="w-5 h-5" />
+                    </button>
+
+                    <button onClick={handleTogglePlay} className={`px-8 py-4 rounded-2xl font-bold text-white shadow-xl flex items-center gap-2 text-lg transition-all transform active:scale-95 ${isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30'}`}>
+                      {isRunning ? <><Pause className="w-6 h-6" /><span>Pause</span></> : <><Play className="w-6 h-6" /><span>Start</span></>}
+                    </button>
+
+                    <button onClick={handleSkipNext} className={`p-3.5 rounded-2xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700'}`}>
+                      <SkipForward className="w-5 h-5" />
+                    </button>
+
+                    <button onClick={handleResetAll} className={`p-3.5 rounded-2xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-red-400' : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-red-500'}`}>
+                      <RotateCcw className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className={`w-full max-w-md p-4 rounded-2xl border ${darkMode ? 'bg-slate-900/50 border-slate-800/80' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <div className="flex justify-between items-center text-xs text-slate-400 font-medium mb-2">
+                      <span>Overall Session Completion</span>
+                      <span>{Math.round(overallProgressPercent)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500 rounded-full" style={{ width: `${overallProgressPercent}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 space-y-4">
+                  <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <h3 className="text-sm font-bold tracking-wide uppercase text-slate-400 mb-3 flex items-center gap-2">
+                      <Bell className="w-4 h-4" /> Alarm & Alerts
+                    </h3>
+                    <div className="flex items-center justify-between gap-4">
+                      <button onClick={() => setSoundEnabled(!soundEnabled)} className={`flex-1 py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 font-medium text-xs transition-all ${soundEnabled ? 'bg-indigo-600/10 border-indigo-500/30 text-indigo-400' : 'bg-slate-800/40 border-slate-800 text-slate-500'}`}>
+                        {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                        <span>{soundEnabled ? 'Audio Chimes On' : 'Muted'}</span>
+                      </button>
+
+                      <button onClick={() => setFlashEnabled(!flashEnabled)} className={`flex-1 py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 font-medium text-xs transition-all ${flashEnabled ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-slate-800/40 border-slate-800 text-slate-500'}`}>
+                        <Sparkles className="w-4 h-4" />
+                        <span>{flashEnabled ? 'Screen Flash On' : 'Flash Off'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold tracking-wide uppercase text-slate-400">Interval Blocks Sequence</h3>
+                      <span className="text-xs bg-indigo-500/10 text-indigo-400 px-2.5 py-1 rounded-md font-semibold">{steps.length} Steps</span>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                      {steps.map((step, idx) => {
+                        const isActive = idx === currentStepIndex;
+                        return (
+                          <div key={step.id || idx} onClick={() => { setIsRunning(false); setCurrentStepIndex(idx); setTimeLeft(getStepDurationSeconds(step)); }} className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${isActive ? 'bg-indigo-600/15 border-indigo-500/50 shadow-md ring-1 ring-indigo-500/30' : darkMode ? 'bg-slate-950/50 border-slate-800/80 hover:bg-slate-800/50 text-slate-300' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: step.color }} />
+                              <div>
+                                <p className="font-bold text-sm leading-snug">{step.name}</p>
+                                <p className="text-xs text-slate-400 font-mono">{step.minutes}m {step.seconds > 0 ? `${step.seconds}s` : ''} • Sound: {step.sound}</p>
+                              </div>
+                            </div>
+                            {isActive && <span className="text-xs bg-indigo-600 text-white font-semibold px-2 py-0.5 rounded-md">Active</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'editor' && (
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Settings className="w-5 h-5 text-indigo-500" /> Routine General Settings</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Routine Title</label>
+                      <input type="text" value={sessionName} onChange={(e) => setSessionName(e.target.value)} className={`w-full px-4 py-2.5 rounded-xl border text-sm font-semibold outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Target Loop Cycles</label>
+                      <input type="number" min="0" max="99" value={targetCycles} onChange={(e) => setTargetCycles(Math.max(0, parseInt(e.target.value) || 0))} className={`w-full px-4 py-2.5 rounded-xl border text-sm font-semibold outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h2 className="text-lg font-bold">Custom Timed Interval Blocks</h2>
+                      <p className="text-xs text-slate-400">Configure durations, colors, and audio tones</p>
+                    </div>
+                    <button onClick={handleAddStep} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl flex items-center gap-1.5 shadow-md">
+                      <Plus className="w-4 h-4" /> Add Step
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {steps.map((step, index) => (
+                      <div key={step.id || index} className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center gap-4 ${darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className="flex md:flex-col items-center gap-1 text-slate-500">
+                          <button onClick={() => handleMoveStep(index, -1)} disabled={index === 0} className="p-1 hover:text-indigo-400 disabled:opacity-30"><ChevronUp className="w-4 h-4" /></button>
+                          <span className="text-xs font-bold font-mono px-1">{index + 1}</span>
+                          <button onClick={() => handleMoveStep(index, 1)} disabled={index === steps.length - 1} className="p-1 hover:text-indigo-400 disabled:opacity-30"><ChevronDown className="w-4 h-4" /></button>
+                        </div>
+
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Block Name</label>
+                          <input type="text" value={step.name} onChange={(e) => handleUpdateStep(step.id, 'name', e.target.value)} className={`w-full px-3 py-1.5 rounded-lg border text-sm font-semibold outline-none ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200'}`} />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Min</label>
+                            <input type="number" min="0" max="300" value={step.minutes} onChange={(e) => handleUpdateStep(step.id, 'minutes', parseInt(e.target.value) || 0)} className={`w-16 px-2 py-1.5 rounded-lg border text-sm font-mono text-center ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200'}`} />
+                          </div>
+                          <span className="mt-4 text-slate-400 font-bold">:</span>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sec</label>
+                            <input type="number" min="0" max="59" value={step.seconds} onChange={(e) => handleUpdateStep(step.id, 'seconds', parseInt(e.target.value) || 0)} className={`w-16 px-2 py-1.5 rounded-lg border text-sm font-mono text-center ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200'}`} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Color</label>
+                          <div className="flex items-center gap-1.5">
+                            {PRESET_COLORS.map(c => (
+                              <button key={c.hex} onClick={() => handleUpdateStep(step.id, 'color', c.hex)} className={`w-5 h-5 rounded-full ${step.color === c.hex ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : 'opacity-70'}`} style={{ backgroundColor: c.hex }} />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Alarm Tone</label>
+                          <div className="flex items-center gap-1">
+                            <select value={step.sound || 'chime'} onChange={(e) => handleUpdateStep(step.id, 'sound', e.target.value)} className={`px-2 py-1.5 rounded-lg border text-xs font-semibold outline-none ${darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200'}`}>
+                              <option value="chime">Chime</option>
+                              <option value="bell">Bell</option>
+                              <option value="beep">Beep</option>
+                              <option value="silent">Silent</option>
+                            </select>
+                            <button onClick={() => playAudioTone(step.sound)} className="p-1.5 rounded-lg border text-slate-400 hover:text-indigo-400"><Volume2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 mt-2 md:mt-4">
+                          <button onClick={() => handleDuplicateStep(index)} className="p-2 rounded-lg text-slate-400 hover:text-slate-200"><Copy className="w-4 h-4" /></button>
+                          <button onClick={() => handleDeleteStep(step.id)} className="p-2 rounded-lg text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t border-slate-800/60 flex flex-col sm:flex-row items-center gap-3">
+                    <input type="text" value={editingPresetName} onChange={(e) => setEditingPresetName(e.target.value)} placeholder="Preset Name (e.g. My Routine)" className={`flex-1 w-full px-4 py-2.5 rounded-xl border text-sm font-semibold outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200'}`} />
+                    <button onClick={handleSaveAsNewPreset} disabled={!editingPresetName.trim()} className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2">
+                      <Save className="w-4 h-4" /> Save as Template
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'presets' && (
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold">Preset Routines Library</h2>
+                    <p className="text-xs text-slate-400">Select pre-built ergonomic presets or load custom routines</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {presets.map((preset) => (
+                    <div key={preset.id} className={`p-5 rounded-2xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-bold text-base text-indigo-400">{preset.name}</h3>
+                          {!preset.id.startsWith('sit-stand') && !preset.id.startsWith('ergo') && !preset.id.startsWith('classic') && (
+                            <button onClick={() => handleDeletePreset(preset.id)} className="text-slate-500 hover:text-red-400 p-1"><Trash2 className="w-4 h-4" /></button>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mb-4">{preset.description || `${preset.steps.length} Steps`}</p>
+                        <div className="flex items-center gap-1.5 mb-5 overflow-hidden rounded-lg p-1 bg-slate-950/40 border border-slate-800">
+                          {preset.steps.map((s, idx) => (
+                            <div key={idx} className="h-2 rounded-full flex-1" style={{ backgroundColor: s.color }} />
+                          ))}
+                        </div>
+                      </div>
+
+                      <button onClick={() => handleLoadPreset(preset)} className="w-full py-2.5 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2">
+                        <Play className="w-4 h-4" /> Load Routine
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </main>
+
+          <footer className={`py-4 text-center text-xs border-t ${darkMode ? 'bg-slate-900/50 border-slate-800/80 text-slate-500' : 'bg-slate-100 border-slate-200 text-slate-400'}`}>
+            ChronoFlow • Standalone Web App
+          </footer>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
